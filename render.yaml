@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: artisan-marketplace-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # Set these manually in the Render dashboard — do NOT commit real values:
+      - key: FRONTEND_URL
+        sync: false          # e.g. https://artisan-marketplace.vercel.app
+      - key: DB_HOST
+        sync: false          # Render Postgres internal hostname
+      - key: DB_PORT
+        sync: false          # usually 5432
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: NIM_API_BASE
+        value: https://integrate.api.nvidia.com
+      - key: NIM_MODEL
+        sync: false
+      - key: NIM_API_KEY
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

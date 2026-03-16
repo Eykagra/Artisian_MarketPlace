@@ -138,4 +138,89 @@ export async function signup(email: string, password: string): Promise<AuthRespo
   return data;
 }
 
+export interface Order {
+  id: number;
+  productId: number;
+  buyerId: number;
+  quantity: number;
+  totalPrice: number;
+  status: string;
+  buyerName: string;
+  buyerPhone: string;
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryPincode: string;
+  createdAt: string;
+  productTitle?: string;
+  productPrice?: number;
+  buyerEmail?: string;
+}
+
+export interface SellerStats {
+  totalOrders: number;
+  totalRevenue: number;
+  productsWithOrders: number;
+  pendingOrders: number;
+  completedOrders: number;
+}
+
+export interface PlaceOrderPayload {
+  buyerName: string;
+  buyerPhone: string;
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryPincode: string;
+  quantity?: number;
+}
+
+export async function placeOrder(
+  productId: number,
+  payload: PlaceOrderPayload,
+  token: string
+): Promise<Order> {
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const { data } = await api.post<Order>(`/products/${productId}/orders`, payload, { headers });
+  return data;
+}
+
+export async function fetchSellerOrders(token: string): Promise<Order[]> {
+  const headers = { Authorization: `Bearer ${token}` };
+  const { data } = await api.get<Order[]>('/seller/orders', { headers });
+  return data;
+}
+
+export async function fetchSellerStats(token: string): Promise<SellerStats> {
+  const headers = { Authorization: `Bearer ${token}` };
+  const { data } = await api.get<SellerStats>('/seller/stats', { headers });
+  return data;
+}
+
+export async function updateOrderStatus(
+  orderId: number,
+  status: string,
+  token: string
+): Promise<{ id: number; status: string }> {
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const { data } = await api.patch<{ id: number; status: string }>(
+    `/orders/${orderId}/status`,
+    { status },
+    { headers }
+  );
+  return data;
+}
+
+export function getCurrentUserIdFromToken(token: string | null | undefined): number | null {
+  if (!token) return null;
+  try {
+    const [, payload] = token.split('.');
+    if (!payload) return null;
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    const data = JSON.parse(json) as { userId?: unknown };
+    const id = data.userId;
+    return typeof id === 'number' ? id : null;
+  } catch {
+    return null;
+  }
+}
+
 export default api;

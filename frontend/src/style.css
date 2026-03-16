@@ -7,3 +7,13 @@
 body {
   @apply bg-artisan-cream text-artisan-bark antialiased;
 }
+
+@keyframes drawCheck {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes orderSuccess {
+  0%   { transform: scale(0.4); opacity: 0; }
+  70%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}

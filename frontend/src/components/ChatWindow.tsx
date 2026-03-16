@@ -17,6 +17,8 @@ export interface ChatMessage {
   product?: ChatProduct | null;
 }
 
+const CHAT_DRAFT_STORAGE_KEY = 'list-product-chat-draft:v1';
+
 interface ChatWindowProps {
   token?: string;
 }
@@ -31,6 +33,44 @@ export default function ChatWindow({ token }: ChatWindowProps) {
   const [uploadLoadingMessageId, setUploadLoadingMessageId] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const clearDraft = () => {
+    try {
+      sessionStorage.removeItem(CHAT_DRAFT_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(CHAT_DRAFT_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        messages?: ChatMessage[];
+        imageUrlByMessageId?: Record<string, string>;
+      };
+      if (Array.isArray(parsed.messages) && parsed.messages.length) {
+        setMessages(parsed.messages);
+      }
+      if (parsed.imageUrlByMessageId && typeof parsed.imageUrlByMessageId === 'object') {
+        setImageUrlByMessageId(parsed.imageUrlByMessageId);
+      }
+    } catch {
+      // ignore corrupted drafts
+    }
+    // load once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    try {
+      const payload = JSON.stringify({ messages, imageUrlByMessageId });
+      sessionStorage.setItem(CHAT_DRAFT_STORAGE_KEY, payload);
+    } catch {
+      // ignore storage errors (quota / privacy mode)
+    }
+  }, [messages, imageUrlByMessageId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -111,6 +151,7 @@ export default function ChatWindow({ token }: ChatWindowProps) {
         token
       );
       setCreateSuccess(`Listing created!`);
+      clearDraft();
       setTimeout(() => navigate(`/products/${created.id}`), 1500);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create listing';
