@@ -80,9 +80,9 @@ export default function MyOrdersPage() {
                 <div className="flex flex-wrap items-start gap-4">
                   {/* Product image */}
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-stone-100 bg-stone-100">
-                    {(o as Order & { productImageUrl?: string }).productImageUrl ? (
+                    {o.productImageUrl ? (
                       <img
-                        src={(o as Order & { productImageUrl?: string }).productImageUrl}
+                        src={o.productImageUrl}
                         alt={o.productTitle}
                         className="h-full w-full object-cover"
                       />

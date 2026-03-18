@@ -146,13 +146,13 @@ export default function ChatWindow({ token }: ChatWindowProps) {
     setCreateLoadingMessageId(_messageId);
     setError(null);
     try {
-      const created = await createProduct(
+      const newProduct = await createProduct(
         { ...product, imageUrl: imageUrl ?? product.imageUrl ?? null },
         token
       );
       setCreateSuccess(`Listing created!`);
       clearDraft();
-      setTimeout(() => navigate(`/dashboard`), 1500);
+      setTimeout(() => navigate(`/products/${newProduct.id}`), 1500);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create listing';
       setError(message);

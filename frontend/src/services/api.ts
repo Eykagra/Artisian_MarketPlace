@@ -159,7 +159,9 @@ export interface Order {
   createdAt: string;
   productTitle?: string;
   productPrice?: number;
+  productImageUrl?: string;
   buyerEmail?: string;
+  sellerEmail?: string;
 }
 
 export interface SellerStats {
