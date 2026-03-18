@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+const API_BASE = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -124,7 +124,7 @@ export async function sendChatMessage(
 }
 
 export interface AuthResponse {
-  user: { id: number; email: string };
+  user: { id: number; email: string; role: string };
   token: string;
 }
 
@@ -133,8 +133,14 @@ export async function login(email: string, password: string): Promise<AuthRespon
   return data;
 }
 
-export async function signup(email: string, password: string): Promise<AuthResponse> {
-  const { data } = await api.post<AuthResponse>('/auth/signup', { email, password });
+export async function signup(email: string, password: string, role: 'buyer' | 'seller'): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/auth/signup', { email, password, role });
+  return data;
+}
+
+export async function fetchMyOrders(token: string): Promise<Order[]> {
+  const headers = { Authorization: `Bearer ${token}` };
+  const { data } = await api.get<Order[]>('/buyer/orders', { headers });
   return data;
 }
 
@@ -209,18 +215,28 @@ export async function updateOrderStatus(
   return data;
 }
 
-export function getCurrentUserIdFromToken(token: string | null | undefined): number | null {
+function decodeToken(token: string | null | undefined): { userId?: number; role?: string } | null {
   if (!token) return null;
   try {
     const [, payload] = token.split('.');
     if (!payload) return null;
     const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-    const data = JSON.parse(json) as { userId?: unknown };
-    const id = data.userId;
-    return typeof id === 'number' ? id : null;
+    return JSON.parse(json) as { userId?: number; role?: string };
   } catch {
     return null;
   }
+}
+
+export function getCurrentUserIdFromToken(token: string | null | undefined): number | null {
+  const d = decodeToken(token);
+  return typeof d?.userId === 'number' ? d.userId : null;
+}
+
+export function getRoleFromToken(token: string | null | undefined): 'buyer' | 'seller' | null {
+  const d = decodeToken(token);
+  if (d?.role === 'seller') return 'seller';
+  if (d?.role === 'buyer') return 'buyer';
+  return null;
 }
 
 export default api;

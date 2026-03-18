@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import type { Product } from '../services/api';
-import { getCurrentUserIdFromToken } from '../services/api';
+import { getCurrentUserIdFromToken, getRoleFromToken } from '../services/api';
 
 interface ProductCardProps {
   product: Product;
@@ -10,6 +10,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   const price = typeof product.price === 'number' ? product.price : parseFloat(String(product.price));
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
+  const role = getRoleFromToken(token);
+  const isSeller = role === 'seller';
   const currentUserId = getCurrentUserIdFromToken(token);
   const isOwnListing = currentUserId != null && currentUserId === product.sellerId;
 
@@ -47,9 +49,10 @@ export default function ProductCard({ product }: ProductCardProps) {
           )}
         </Link>
         <div className="mt-3">
-          {isOwnListing ? (
+          {isSeller ? (
+            /* Sellers see no buy button — product page is view-only for them */
             <span className="inline-block rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs text-artisan-stone">
-              Your listing
+              {isOwnListing ? 'Your listing' : 'View only'}
             </span>
           ) : (
             <button

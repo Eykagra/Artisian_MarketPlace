@@ -152,7 +152,7 @@ export default function ChatWindow({ token }: ChatWindowProps) {
       );
       setCreateSuccess(`Listing created!`);
       clearDraft();
-      setTimeout(() => navigate(`/products/${created.id}`), 1500);
+      setTimeout(() => navigate(`/dashboard`), 1500);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create listing';
       setError(message);

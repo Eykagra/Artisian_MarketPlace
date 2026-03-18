@@ -78,4 +78,24 @@ async function updateOrderStatus(orderId, sellerId, status) {
   return result.rows[0] || null;
 }
 
-module.exports = { createOrder, getOrdersForSeller, getSellerStats, updateOrderStatus };
+async function getOrdersForBuyer(buyerId) {
+  await ensureOrderTable();
+  const result = await query(
+    `SELECT o.id, o.productid AS "productId", o.buyerid AS "buyerId", o.quantity,
+            o.totalprice AS "totalPrice", o.status,
+            o.buyername AS "buyerName", o.buyerphone AS "buyerPhone",
+            o.deliveryaddress AS "deliveryAddress", o.deliverycity AS "deliveryCity",
+            o.deliverypincode AS "deliveryPincode", o.createdat AS "createdAt",
+            p.title AS "productTitle", p.price AS "productPrice", p.imageurl AS "productImageUrl",
+            u.email AS "sellerEmail"
+     FROM "Order" o
+     JOIN "Product" p ON o.productid = p.id
+     JOIN "User" u ON p.sellerid = u.id
+     WHERE o.buyerid = $1
+     ORDER BY o.createdat DESC`,
+    [buyerId]
+  );
+  return result.rows;
+}
+
+module.exports = { createOrder, getOrdersForSeller, getSellerStats, updateOrderStatus, getOrdersForBuyer };

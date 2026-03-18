@@ -1,10 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
-import { fetchProducts, type Product } from '../services/api';
+import { Navigate } from 'react-router-dom';
+import { fetchProducts, getRoleFromToken, type Product } from '../services/api';
 import ProductGrid from '../components/ProductGrid';
 
 const CATEGORIES = ['All', 'Handcrafted', 'Jewelry', 'Textiles', 'Pottery', 'Woodwork', 'Other'];
 
 export default function Home() {
+  const role = getRoleFromToken(localStorage.getItem('token'));
+  if (role === 'seller') return <Navigate to="/dashboard" replace />;
+
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

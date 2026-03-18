@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getRoleFromToken } from '../services/api';
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -18,36 +19,48 @@ export default function Navbar() {
     navigate('/');
   };
 
+  const role = getRoleFromToken(token);
+  const isSeller = role === 'seller';
+  const isBuyer = role === 'buyer';
+
   return (
     <nav className="sticky top-0 z-50 border-b border-stone-200 bg-artisan-cream/95 backdrop-blur-sm">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link
-          to="/"
+          to={isSeller ? '/dashboard' : '/'}
           className="text-xl font-semibold tracking-tight text-artisan-bark transition hover:text-artisan-terracotta"
         >
           Artisan Marketplace
         </Link>
+
         <div className="flex items-center gap-6">
-          <Link
-            to="/"
-            className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark"
-          >
-            Browse
-          </Link>
-          <Link
-            to="/list-product"
-            className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark"
-          >
-            List product
-          </Link>
-          {token && (
-            <Link
-              to="/dashboard"
-              className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark"
-            >
-              Dashboard
+          {/* Guest + Buyer: Browse */}
+          {(!token || isBuyer) && (
+            <Link to="/" className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark">
+              Browse
             </Link>
           )}
+
+          {/* Seller only */}
+          {isSeller && (
+            <>
+              <Link to="/list-product" className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark">
+                List product
+              </Link>
+              <Link to="/dashboard" className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark">
+                Dashboard
+              </Link>
+            </>
+          )}
+
+          {/* Buyer only */}
+          {isBuyer && (
+            <Link to="/my-orders" className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark">
+              My orders
+            </Link>
+          )}
+
+          {/* Auth */}
           {token ? (
             <button
               type="button"
@@ -58,10 +71,7 @@ export default function Navbar() {
             </button>
           ) : (
             <>
-              <Link
-                to="/login"
-                className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark"
-              >
+              <Link to="/login" className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark">
                 Log in
               </Link>
               <Link

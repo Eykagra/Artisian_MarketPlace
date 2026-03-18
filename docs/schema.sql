@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS "User" (
   id SERIAL PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   password TEXT NOT NULL,
-  createdAt TIMESTAMP DEFAULT NOW()
+  createdat TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS "Product" (
@@ -11,15 +11,29 @@ CREATE TABLE IF NOT EXISTS "Product" (
   description TEXT NOT NULL,
   price DOUBLE PRECISION NOT NULL,
   category TEXT NOT NULL,
-  imageUrl TEXT,
-  sellerId INTEGER NOT NULL REFERENCES "User"(id),
-  createdAt TIMESTAMP DEFAULT NOW()
+  imageurl TEXT,
+  sellerid INTEGER NOT NULL REFERENCES "User"(id),
+  createdat TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS "Chat" (
   id SERIAL PRIMARY KEY,
-  userId INTEGER REFERENCES "User"(id),
+  userid INTEGER REFERENCES "User"(id),
   content TEXT NOT NULL,
-  createdAt TIMESTAMP DEFAULT NOW()
+  createdat TIMESTAMP DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS "Order" (
+  id SERIAL PRIMARY KEY,
+  productid INTEGER NOT NULL REFERENCES "Product"(id) ON DELETE CASCADE,
+  buyerid INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  totalprice DOUBLE PRECISION NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  buyername TEXT NOT NULL,
+  buyerphone TEXT NOT NULL,
+  deliveryaddress TEXT NOT NULL,
+  deliverycity TEXT NOT NULL,
+  deliverypincode TEXT NOT NULL,
+  createdat TIMESTAMP DEFAULT NOW()
+);

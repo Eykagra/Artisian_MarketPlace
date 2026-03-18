@@ -7,18 +7,19 @@ const SALT_ROUNDS = 10;
 
 async function signup(req, res) {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
+    const userRole = role === 'seller' ? 'seller' : 'buyer';
     const existing = await userService.findUserByEmail(email);
     if (existing) {
       return res.status(409).json({ error: 'Email already registered' });
     }
     const hash = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await userService.createUser(email, hash);
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    res.status(201).json({ user: { id: user.id, email: user.email }, token });
+    const user = await userService.createUser(email, hash, userRole);
+    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+    res.status(201).json({ user: { id: user.id, email: user.email, role: user.role }, token });
   } catch (err) {
     console.error('Signup error:', err);
     res.status(500).json({ error: 'Signup failed' });
@@ -39,8 +40,8 @@ async function login(req, res) {
     if (!valid) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ user: { id: user.id, email: user.email }, token });
+    const token = jwt.sign({ userId: user.id, role: user.role || 'buyer' }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ user: { id: user.id, email: user.email, role: user.role || 'buyer' }, token });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Login failed' });

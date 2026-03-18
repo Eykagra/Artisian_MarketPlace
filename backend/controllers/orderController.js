@@ -1,4 +1,5 @@
 const orderService = require('../services/orderService');
+
 const productService = require('../services/productService');
 
 async function placeOrder(req, res) {
@@ -101,4 +102,16 @@ async function updateOrderStatus(req, res) {
   }
 }
 
-module.exports = { placeOrder, mySellerOrders, sellerStats, updateOrderStatus };
+async function myBuyerOrders(req, res) {
+  try {
+    const buyerId = req.user?.userId;
+    if (!buyerId) return res.status(401).json({ error: 'Authentication required' });
+    const orders = await orderService.getOrdersForBuyer(buyerId);
+    res.json(orders);
+  } catch (err) {
+    console.error('Buyer orders error:', err);
+    res.status(500).json({ error: 'Failed to fetch your orders' });
+  }
+}
+
+module.exports = { placeOrder, mySellerOrders, sellerStats, updateOrderStatus, myBuyerOrders };

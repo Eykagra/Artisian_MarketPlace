@@ -1,24 +1,33 @@
 const { query } = require('../db');
 
-async function createUser(email, passwordHash) {
+async function ensureRoleColumn() {
+  await query(`
+    ALTER TABLE "User" ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'buyer'
+  `);
+}
+
+async function createUser(email, passwordHash, role = 'buyer') {
+  await ensureRoleColumn();
   const result = await query(
-    'INSERT INTO "User" (email, password) VALUES ($1, $2) RETURNING id, email, createdat AS "createdAt"',
-    [email, passwordHash]
+    'INSERT INTO "User" (email, password, role) VALUES ($1, $2, $3) RETURNING id, email, role, createdat AS "createdAt"',
+    [email, passwordHash, role]
   );
   return result.rows[0];
 }
 
 async function findUserByEmail(email) {
+  await ensureRoleColumn();
   const result = await query(
-    'SELECT id, email, password, createdat AS "createdAt" FROM "User" WHERE email = $1',
+    'SELECT id, email, password, role, createdat AS "createdAt" FROM "User" WHERE email = $1',
     [email]
   );
   return result.rows[0] || null;
 }
 
 async function findUserById(id) {
+  await ensureRoleColumn();
   const result = await query(
-    'SELECT id, email, createdat AS "createdAt" FROM "User" WHERE id = $1',
+    'SELECT id, email, role, createdat AS "createdAt" FROM "User" WHERE id = $1',
     [id]
   );
   return result.rows[0] || null;
