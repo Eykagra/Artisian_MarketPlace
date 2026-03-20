@@ -14,7 +14,7 @@ The platform is designed around several key entities that govern the marketplace
 
 ---
 
-## ✨ Core Functionalities & Subsystems
+##  Core Functionalities & Subsystems
 
 ### 1. Identity & Security (Auth Module)
 The Marketplace securely handles user credentials using bcrypt hashing and secures all private API interactions via **JSON Web Tokens (JWT)**. 
