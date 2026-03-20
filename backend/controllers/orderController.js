@@ -3,6 +3,7 @@ const orderService = require('../services/orderService');
 const productService = require('../services/productService');
 const stripeService = require('../services/stripeService');
 const reservationService = require('../checkout/reservationService');
+const notificationService = require('../services/notificationService');
 const { emitToUser } = require('../socket');
 
 function parseItemsString(itemsString) {
@@ -74,12 +75,17 @@ async function placeOrder(req, res) {
       deliveryPincode: String(deliveryPincode),
     });
 
-    emitToUser(product.sellerId, 'order:new', {
+    const notifPayload = {
       orderId: order.id,
       buyerName: order.buyerName,
       totalAmount: order.totalPrice,
       timestamp: order.createdAt || new Date()
-    });
+    };
+    
+    // Save for offline catch-up
+    await notificationService.createNotification(product.sellerId, 'order:new', notifPayload);
+
+    emitToUser(product.sellerId, 'order:new', notifPayload);
 
     res.status(201).json(order);
   } catch (err) {
@@ -186,16 +192,20 @@ async function updateOrderStatus(req, res) {
       })();
 
       // Notify buyer in real-time
-      emitToUser(updated.buyerId, 'order:cancelled', {
+      const cancelPayload = {
         orderId: updated.id,
         message: 'Your order has been cancelled by the seller. If you paid online, your refund will be credited within 3 business days.'
-      });
+      };
+      await notificationService.createNotification(updated.buyerId, 'order:cancelled', cancelPayload);
+      emitToUser(updated.buyerId, 'order:cancelled', cancelPayload);
     }
 
-    emitToUser(updated.buyerId, 'order:update', {
+    const updatePayload = {
       orderId: updated.id,
       status: updated.status
-    });
+    };
+    await notificationService.createNotification(updated.buyerId, 'order:update', updatePayload);
+    emitToUser(updated.buyerId, 'order:update', updatePayload);
 
     res.json(updated);
   } catch (err) {
@@ -427,12 +437,14 @@ async function confirmCheckoutSession(req, res) {
 
         const product = await productService.getById(line.productId);
         if (product && product.sellerId) {
-          emitToUser(product.sellerId, 'order:new', {
+          const stripeNotifPayload = {
             orderId: order.id,
             buyerName: order.buyerName,
             totalAmount: order.totalPrice,
             timestamp: order.createdAt || new Date()
-          });
+          };
+          await notificationService.createNotification(product.sellerId, 'order:new', stripeNotifPayload);
+          emitToUser(product.sellerId, 'order:new', stripeNotifPayload);
         }
 
         createdOrders.push(order);
