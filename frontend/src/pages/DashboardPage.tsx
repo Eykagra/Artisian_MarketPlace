@@ -127,7 +127,11 @@ export default function DashboardPage() {
       refreshAll(token);
     };
     socket.on('order:new', handleNewOrder);
-    return () => { socket.off('order:new', handleNewOrder); };
+    socket.on('order:update', handleNewOrder);
+    return () => { 
+      socket.off('order:new', handleNewOrder); 
+      socket.off('order:update', handleNewOrder);
+    };
   }, [socket, token]);
 
   // ── Products helpers ──────────────────────────────────────────────────────
@@ -207,7 +211,7 @@ export default function DashboardPage() {
     try {
       const updated = await updateOrderStatus(orderId, 'cancelled', token);
       setOrders((prev) => prev.map((o) => (o.id === updated.id ? { ...o, status: updated.status } : o)));
-      if (token) fetchSellerStats(token).then(setStats).catch(() => {});
+      if (token) refreshAll(token);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to cancel order');
     } finally {
