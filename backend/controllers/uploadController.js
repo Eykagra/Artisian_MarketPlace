@@ -1,6 +1,7 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 const { v2: cloudinary } = require('cloudinary');
+const { moderateImage } = require('../services/moderationService');
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -16,6 +17,15 @@ async function uploadImage(req, res) {
     return res.status(503).json({ error: 'Image upload not configured (Cloudinary env missing)' });
   }
   try {
+    // Moderate image before uploading to Cloudinary
+    const modResult = await moderateImage(req.file.buffer, req.file.mimetype);
+    if (!modResult.allowed) {
+      return res.status(422).json({
+        error: 'Image rejected by content moderation',
+        reason: modResult.reason,
+      });
+    }
+
     const result = await new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         { folder: 'artisan-marketplace' },

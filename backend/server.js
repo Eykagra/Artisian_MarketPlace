@@ -9,6 +9,7 @@ const productRoutes = require('./routes/products');
 const chatRoutes = require('./routes/chat');
 const uploadRoutes = require('./routes/upload');
 const orderRoutes = require('./routes/orders');
+const transcribeRoutes = require('./routes/transcribe');
 const { startReservationReaper } = require('./jobs/reservationReaper');
 
 const app = express();
@@ -51,6 +52,7 @@ app.use('/auth', authRoutes);
 app.use('/products', productRoutes);
 app.use('/chat', chatRoutes);
 app.use('/upload', uploadRoutes);
+app.use('/transcribe', transcribeRoutes);
 app.use('/', orderRoutes);
 
 const http = require('http');

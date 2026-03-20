@@ -49,8 +49,16 @@ export async function createProduct(
   token: string
 ): Promise<Product> {
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  const { data } = await api.post<Product>('/products', payload, { headers });
-  return data;
+  try {
+    const { data } = await api.post<Product>('/products', payload, { headers });
+    return data;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      const d = err.response.data as { error?: string; reason?: string };
+      throw new Error(d.reason ? `${d.error}: ${d.reason}` : (d.error || 'Failed to create product'));
+    }
+    throw err;
+  }
 }
 
 export async function fetchMyProducts(token: string): Promise<Product[]> {
@@ -74,8 +82,16 @@ export async function updateProduct(
   token: string
 ): Promise<Product> {
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  const { data } = await api.put<Product>(`/products/${id}`, payload, { headers });
-  return data;
+  try {
+    const { data } = await api.put<Product>(`/products/${id}`, payload, { headers });
+    return data;
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.data) {
+      const d = err.response.data as { error?: string; reason?: string };
+      throw new Error(d.reason ? `${d.error}: ${d.reason}` : (d.error || 'Failed to update product'));
+    }
+    throw err;
+  }
 }
 
 export async function deleteProduct(id: number, token: string): Promise<void> {
@@ -99,7 +115,8 @@ export async function uploadProductImage(file: File, token?: string): Promise<st
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `Upload failed with status ${res.status}`);
+    const msg = err.reason ? `${err.error}: ${err.reason}` : (err.error || `Upload failed with status ${res.status}`);
+    throw new Error(msg);
   }
 
   const data = await res.json();
@@ -116,7 +133,7 @@ export interface ChatProduct {
 
 export interface ChatResponse {
   message: { id: number; userId: number | null; content: string; createdAt: string };
-  ai: { text: string; product: ChatProduct | null };
+  ai: { text: string; product: ChatProduct | null; speech?: string | null };
   error?: string;
 }
 
@@ -311,6 +328,19 @@ export async function fetchSellerDashboard(token: string): Promise<DashboardMetr
   const headers = { Authorization: `Bearer ${token}` };
   const { data } = await api.get<DashboardMetrics>('/dashboard', { headers });
   return data;
+}
+
+/**
+ * Send an audio blob to the backend for transcription via Mistral Voxtral.
+ * Returns the transcribed text string.
+ */
+export async function transcribeAudio(blob: Blob, mimeType: string): Promise<string> {
+  const form = new FormData();
+  form.append('audio', blob, `recording.${mimeType.split('/')[1] || 'webm'}`);
+  const { data } = await axios.post<{ text: string }>(`${API_BASE}/transcribe`, form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data.text;
 }
 
 export default api;

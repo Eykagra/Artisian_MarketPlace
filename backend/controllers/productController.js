@@ -1,4 +1,5 @@
 const productService = require('../services/productService');
+const { moderateText } = require('../services/moderationService');
 
 async function list(req, res) {
   try {
@@ -51,6 +52,15 @@ async function create(req, res) {
     if (!title || description == null || price == null || !category) {
       return res.status(400).json({ error: 'title, description, price, and category are required' });
     }
+
+    const modResult = await moderateText({ title, description: String(description), category: String(category) });
+    if (!modResult.allowed) {
+      return res.status(422).json({
+        error: 'Listing rejected by content moderation',
+        reason: modResult.reason,
+      });
+    }
+
     const { stock } = req.body;
     const product = await productService.create({
       title,
@@ -82,6 +92,15 @@ async function update(req, res) {
     if (!title || description == null || price == null || !category) {
       return res.status(400).json({ error: 'title, description, price, and category are required' });
     }
+
+    const modResult = await moderateText({ title, description: String(description), category: String(category) });
+    if (!modResult.allowed) {
+      return res.status(422).json({
+        error: 'Listing rejected by content moderation',
+        reason: modResult.reason,
+      });
+    }
+
     const product = await productService.update(id, sellerId, {
       title: String(title),
       description: String(description),

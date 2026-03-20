@@ -4,6 +4,7 @@ import {
   sendChatMessage,
   createProduct,
   uploadProductImage,
+  transcribeAudio,
   type ChatProduct,
   type CreateProductPayload,
 } from '../services/api';
@@ -15,6 +16,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   product?: ChatProduct | null;
+  speech?: string | null;
 }
 
 const CHAT_DRAFT_STORAGE_KEY = 'list-product-chat-draft:v1';
@@ -23,11 +25,23 @@ interface ChatWindowProps {
   token?: string;
 }
 
+/** Speak text via the Web Speech API; cancels any in-progress speech first */
+function speakText(text: string) {
+  if (!('speechSynthesis' in window) || !text) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'hi-IN';
+  utterance.rate = 0.95;
+  utterance.pitch = 1;
+  window.speechSynthesis.speak(utterance);
+}
+
 export default function ChatWindow({ token }: ChatWindowProps) {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [speechEnabled, setSpeechEnabled] = useState(true);
   const [imageUrlByMessageId, setImageUrlByMessageId] = useState<Record<string, string>>({});
   const [createLoadingMessageId, setCreateLoadingMessageId] = useState<string | null>(null);
   const [uploadLoadingMessageId, setUploadLoadingMessageId] = useState<string | null>(null);
@@ -107,8 +121,10 @@ export default function ChatWindow({ token }: ChatWindowProps) {
         role: 'assistant',
         content: res.ai.text,
         product: res.ai.product ?? undefined,
+        speech: res.ai.speech ?? null,
       };
       setMessages((prev) => [...prev, assistantMsg]);
+      if (speechEnabled && res.ai.speech) speakText(res.ai.speech);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Something went wrong';
       setError(message);
@@ -161,8 +177,54 @@ export default function ChatWindow({ token }: ChatWindowProps) {
     }
   };
 
+  const handleVoiceReady = async (blob: Blob, mimeType: string) => {
+    setError(null);
+    try {
+      const text = await transcribeAudio(blob, mimeType);
+      if (text) await handleSend(text);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Transcription failed');
+    }
+  };
+
   return (
     <div className="flex h-full flex-col rounded-xl border border-stone-200 bg-artisan-cream shadow-sm">
+      {/* Header bar with mute toggle */}
+      {'speechSynthesis' in window && (
+        <div className="flex items-center justify-end border-b border-stone-200 bg-white px-4 py-2">
+          <button
+            type="button"
+            onClick={() => {
+              if (speechEnabled) window.speechSynthesis.cancel();
+              setSpeechEnabled((v) => !v);
+            }}
+            title={speechEnabled ? 'Mute voice responses' : 'Unmute voice responses'}
+            className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-artisan-stone hover:bg-stone-100"
+          >
+            {speechEnabled ? (
+              <>
+                {/* speaker on */}
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M19.07 4.93a10 10 0 010 14.14" />
+                  <path d="M15.54 8.46a5 5 0 010 7.07" />
+                </svg>
+                Voice on
+              </>
+            ) : (
+              <>
+                {/* speaker off */}
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <line x1="23" y1="9" x2="17" y2="15" />
+                  <line x1="17" y1="9" x2="23" y2="15" />
+                </svg>
+                Voice off
+              </>
+            )}
+          </button>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 && (
           <div className="rounded-xl border border-dashed border-stone-300 bg-white/60 py-8 text-center text-artisan-stone">
@@ -178,6 +240,7 @@ export default function ChatWindow({ token }: ChatWindowProps) {
             role={m.role}
             content={m.content}
             product={m.product}
+            speech={m.speech}
             imageUrl={m.role === 'assistant' ? imageUrlByMessageId[m.id] : undefined}
             isLoggedIn={!!token}
             onCreateListing={
@@ -209,7 +272,7 @@ export default function ChatWindow({ token }: ChatWindowProps) {
       {error && (
         <p className="px-4 text-sm text-red-600">{error}</p>
       )}
-      <ChatInput onSend={handleSend} disabled={loading} />
+      <ChatInput onSend={handleSend} disabled={loading} onVoiceReady={handleVoiceReady} />
     </div>
   );
 }

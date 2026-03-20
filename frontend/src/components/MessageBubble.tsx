@@ -8,16 +8,32 @@ interface MessageBubbleProps {
   product?: ChatProduct | null;
   imageUrl?: string | null;
   isLoggedIn?: boolean;
+  speech?: string | null;
   onCreateListing?: (product: CreateProductPayload, imageUrl?: string | null) => void;
   onUploadImage?: (file: File) => Promise<string>;
   createLoading?: boolean;
   uploadLoading?: boolean;
 }
 
-/** Strip the STRUCTURED_PRODUCT: JSON block from AI messages — it's rendered as a card instead */
-function cleanContent(text: string): string {
-  const idx = text.indexOf('STRUCTURED_PRODUCT:');
-  return idx === -1 ? text : text.slice(0, idx).trimEnd();
+/** Strip metadata lines from AI messages — rendered as card/speech instead */
+function cleanContent(text: string, hasProduct: boolean): string {
+  // Strip SPEECH: line (first line, handled by Web Speech API)
+  let cleaned = text.replace(/^SPEECH:\s*.+\n?/m, '');
+
+  // Strip leading blank line left after removing SPEECH: line
+  cleaned = cleaned.replace(/^\n/, '');
+
+  // Remove the STRUCTURED_PRODUCT: line and everything after it
+  const markerIdx = cleaned.indexOf('STRUCTURED_PRODUCT:');
+  if (markerIdx !== -1) return cleaned.slice(0, markerIdx).trimEnd();
+
+  // Heuristic: if the backend detected a product via fallback, strip any JSON object
+  // that looks like the product listing so it doesn't leak into the visible text.
+  if (hasProduct) {
+    return cleaned.replace(/\{[\s\S]*?"title"[\s\S]*?"price"[\s\S]*?\}/g, '').trimEnd();
+  }
+
+  return cleaned.trimEnd();
 }
 
 export default function MessageBubble({
@@ -26,6 +42,7 @@ export default function MessageBubble({
   product,
   imageUrl,
   isLoggedIn = false,
+  speech,
   onCreateListing,
   onUploadImage,
   createLoading = false,
@@ -34,10 +51,23 @@ export default function MessageBubble({
   const isUser = role === 'user';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [speaking, setSpeaking] = useState(false);
 
-  const displayText = isUser ? content : cleanContent(content);
+  const handleReplayVoice = () => {
+    if (!speech || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(speech);
+    utterance.lang = 'hi-IN';
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    utterance.onstart = () => setSpeaking(true);
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    window.speechSynthesis.speak(utterance);
+  };
 
   const hasProduct = !isUser && product && Object.keys(product).length > 0;
+  const displayText = isUser ? content : cleanContent(content, !!hasProduct);
   const canCreate =
     hasProduct &&
     product!.title &&
@@ -81,6 +111,34 @@ export default function MessageBubble({
       >
         {displayText && (
           <p className="whitespace-pre-wrap text-sm leading-relaxed">{displayText}</p>
+        )}
+        {/* Voice replay button — only on assistant messages that have speech */}
+        {!isUser && speech && 'speechSynthesis' in window && (
+          <button
+            type="button"
+            onClick={handleReplayVoice}
+            title="Replay voice"
+            className="mt-1.5 flex items-center gap-1 text-xs text-artisan-stone/60 hover:text-artisan-terracotta transition-colors"
+          >
+            {speaking ? (
+              <>
+                <svg className="h-3.5 w-3.5 animate-pulse text-artisan-terracotta" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="4" y="4" width="4" height="16" rx="1" />
+                  <rect x="10" y="7" width="4" height="10" rx="1" />
+                  <rect x="16" y="10" width="4" height="4" rx="1" />
+                </svg>
+                <span>Speaking…</span>
+              </>
+            ) : (
+              <>
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M15.54 8.46a5 5 0 010 7.07" />
+                </svg>
+                <span>Replay</span>
+              </>
+            )}
+          </button>
         )}
         {hasProduct && (
           <div className="mt-3 rounded-xl border border-artisan-terracotta/20 bg-artisan-cream p-4 text-xs">

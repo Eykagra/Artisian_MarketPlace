@@ -36,6 +36,7 @@ async function post(req, res) {
       ai: {
         text: ai.text,
         product: ai.product,
+        speech: ai.speech ?? null,
       },
     });
 
