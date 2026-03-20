@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import ProductPage from './pages/ProductPage';
@@ -30,6 +31,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-artisan-cream">
+        <Toaster />
         <Navbar />
         <Routes>
           {/* Public */}

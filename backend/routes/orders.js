@@ -9,6 +9,7 @@ router.post('/checkout/session', requireAuth, orderController.createCheckoutSess
 router.post('/checkout/confirm', requireAuth, orderController.confirmCheckoutSession);
 router.get('/seller/orders', requireAuth, orderController.mySellerOrders);
 router.get('/seller/stats', requireAuth, orderController.sellerStats);
+router.get('/dashboard', requireAuth, orderController.sellerDashboard);
 router.patch('/orders/:orderId/status', requireAuth, orderController.updateOrderStatus);
 router.get('/buyer/orders', requireAuth, orderController.myBuyerOrders);
 

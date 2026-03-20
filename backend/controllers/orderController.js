@@ -3,6 +3,7 @@ const orderService = require('../services/orderService');
 const productService = require('../services/productService');
 const stripeService = require('../services/stripeService');
 const reservationService = require('../checkout/reservationService');
+const { emitToUser } = require('../socket');
 
 function parseItemsString(itemsString) {
   // Format: "productId:qty|productId:qty"
@@ -73,6 +74,13 @@ async function placeOrder(req, res) {
       deliveryPincode: String(deliveryPincode),
     });
 
+    emitToUser(product.sellerId, 'order:new', {
+      orderId: order.id,
+      buyerName: order.buyerName,
+      totalAmount: order.totalPrice,
+      timestamp: order.createdAt || new Date()
+    });
+
     res.status(201).json(order);
   } catch (err) {
     console.error('Place order error:', err);
@@ -110,6 +118,20 @@ async function sellerStats(req, res) {
   }
 }
 
+async function sellerDashboard(req, res) {
+  try {
+    const sellerId = req.user?.userId;
+    if (!sellerId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const dashboardData = await orderService.getDashboardMetrics(sellerId);
+    res.json(dashboardData);
+  } catch (err) {
+    console.error('Fetch seller dashboard error:', err);
+    res.status(500).json({ error: 'Failed to fetch seller dashboard insights' });
+  }
+}
+
 async function updateOrderStatus(req, res) {
   try {
     const sellerId = req.user?.userId;
@@ -120,15 +142,61 @@ async function updateOrderStatus(req, res) {
     if (isNaN(orderId)) {
       return res.status(400).json({ error: 'Invalid order id' });
     }
-    const { status } = req.body;
-    const allowed = ['pending', 'confirmed', 'shipped', 'completed', 'cancelled'];
+    const { status, otp } = req.body;
+    const allowed = ['pending', 'confirmed', 'shipped', 'completed', 'cancelled', 'delivered'];
     if (!status || !allowed.includes(status)) {
       return res.status(400).json({ error: `status must be one of: ${allowed.join(', ')}` });
     }
+
+    if (status === 'delivered') {
+      if (!otp) {
+        return res.status(400).json({ error: 'Delivery OTP is required to mark as delivered.' });
+      }
+      const actualOtp = await orderService.getOrderOtpForSeller(orderId, sellerId);
+      if (!actualOtp) {
+        return res.status(404).json({ error: 'Order not found or you do not own the product.' });
+      }
+      if (String(actualOtp).trim() !== String(otp).trim()) {
+        return res.status(400).json({ error: 'Invalid Delivery OTP. Please ask the buyer for the correct 4-digit code.' });
+      }
+    }
+
     const updated = await orderService.updateOrderStatus(orderId, sellerId, status);
     if (!updated) {
       return res.status(404).json({ error: 'Order not found or you do not own the product' });
     }
+
+    // ── Cancellation: trigger Stripe refund + notify buyer ─────────────────
+    if (status === 'cancelled') {
+      // Fire-and-forget refund — don't block the response
+      (async () => {
+        try {
+          const stripeSessionId = await orderService.getPaymentSessionByOrderId(orderId);
+          if (stripeSessionId) {
+            const session = await stripeService.retrieveCheckoutSession(stripeSessionId);
+            if (session?.payment_intent && session?.payment_status === 'paid') {
+              await stripeService.refundPaymentIntent(session.payment_intent);
+              await orderService.markOrderRefundPending(orderId);
+              console.log(`[Refund] Stripe refund issued for order #${orderId}`);
+            }
+          }
+        } catch (refundErr) {
+          console.error(`[Refund] Failed to refund order #${orderId}:`, refundErr.message);
+        }
+      })();
+
+      // Notify buyer in real-time
+      emitToUser(updated.buyerId, 'order:cancelled', {
+        orderId: updated.id,
+        message: 'Your order has been cancelled by the seller. If you paid online, your refund will be credited within 3 business days.'
+      });
+    }
+
+    emitToUser(updated.buyerId, 'order:update', {
+      orderId: updated.id,
+      status: updated.status
+    });
+
     res.json(updated);
   } catch (err) {
     console.error('Update order status error:', err);
@@ -356,6 +424,17 @@ async function confirmCheckoutSession(req, res) {
           deliveryCity,
           deliveryPincode,
         });
+
+        const product = await productService.getById(line.productId);
+        if (product && product.sellerId) {
+          emitToUser(product.sellerId, 'order:new', {
+            orderId: order.id,
+            buyerName: order.buyerName,
+            totalAmount: order.totalPrice,
+            timestamp: order.createdAt || new Date()
+          });
+        }
+
         createdOrders.push(order);
       }
     } catch (err) {
@@ -389,6 +468,7 @@ module.exports = {
   placeOrder,
   mySellerOrders,
   sellerStats,
+  sellerDashboard,
   updateOrderStatus,
   myBuyerOrders,
   createCheckoutSession,

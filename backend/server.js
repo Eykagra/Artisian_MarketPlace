@@ -53,7 +53,12 @@ app.use('/chat', chatRoutes);
 app.use('/upload', uploadRoutes);
 app.use('/', orderRoutes);
 
-const server = app.listen(PORT, () => {
+const http = require('http');
+const { initSocket } = require('./socket');
+const httpServer = http.createServer(app);
+initSocket(httpServer);
+
+const server = httpServer.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
   startReservationReaper();
 });
