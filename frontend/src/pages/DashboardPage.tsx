@@ -106,6 +106,7 @@ export default function DashboardPage() {
       price: typeof p.price === 'number' ? p.price : parseFloat(String(p.price)),
       category: p.category,
       imageUrl: p.imageUrl ?? undefined,
+      stock: typeof p.stock === 'number' ? p.stock : 1,
     });
   };
 
@@ -326,6 +327,23 @@ export default function DashboardPage() {
                               />
                             </div>
                             <div>
+                              <label className="block text-sm font-medium text-artisan-stone">Stock</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={typeof editForm.stock === 'number' ? editForm.stock : 1}
+                                onChange={(e) =>
+                                  setEditForm((prev) =>
+                                    prev
+                                      ? { ...prev, stock: Math.max(0, Math.floor(Number(e.target.value) || 0)) }
+                                      : null
+                                  )
+                                }
+                                className="mt-1 w-24 rounded-lg border border-stone-300 px-3 py-2 text-artisan-bark focus:border-artisan-terracotta focus:outline-none focus:ring-1 focus:ring-artisan-terracotta"
+                              />
+                            </div>
+                            <div>
                               <label className="block text-sm font-medium text-artisan-stone">Image</label>
                               <input
                                 type="file" accept="image/*" onChange={handleImageChange}
@@ -369,6 +387,12 @@ export default function DashboardPage() {
                               <p className="mt-1 line-clamp-2 text-sm text-artisan-stone">{p.description}</p>
                               <p className="mt-1 text-base font-semibold text-artisan-bark">
                                 ₹{(typeof p.price === 'number' ? p.price : parseFloat(String(p.price))).toLocaleString('en-IN')}
+                              </p>
+                              <p className="mt-1 text-xs text-artisan-stone">
+                                Stock left:{' '}
+                                <span className="font-medium text-artisan-bark">
+                                  {typeof p.stock === 'number' ? p.stock : 0}
+                                </span>
                               </p>
                               {!ordersLoading && (
                                 <p className="mt-1 text-xs text-artisan-stone">

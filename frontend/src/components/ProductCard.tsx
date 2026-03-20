@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { Product } from '../services/api';
 import { getCurrentUserIdFromToken, getRoleFromToken } from '../services/api';
+import { addToCartWithStock } from '../services/cart';
 
 interface ProductCardProps {
   product: Product;
@@ -14,6 +16,8 @@ export default function ProductCard({ product }: ProductCardProps) {
   const isSeller = role === 'seller';
   const currentUserId = getCurrentUserIdFromToken(token);
   const isOwnListing = currentUserId != null && currentUserId === product.sellerId;
+  const isOutOfStock = typeof product.stock === 'number' && product.stock <= 0;
+  const [addingToCart, setAddingToCart] = useState(false);
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition hover:border-artisan-terracotta/30 hover:shadow-md">
@@ -55,17 +59,42 @@ export default function ProductCard({ product }: ProductCardProps) {
               {isOwnListing ? 'Your listing' : 'View only'}
             </span>
           ) : (
-            <button
-              type="button"
-              onClick={() =>
-                token
-                  ? navigate(`/products/${product.id}?buy=1`)
-                  : navigate(`/login?redirect=/products/${product.id}?buy=1`)
-              }
-              className="w-full rounded-lg bg-artisan-terracotta px-3 py-1.5 text-xs font-medium text-white hover:bg-artisan-terracotta/90"
-            >
-              Buy now
-            </button>
+            isOutOfStock ? (
+              <span className="inline-flex w-full items-center justify-center rounded-lg border border-stone-200 bg-stone-50 px-3 py-1.5 text-xs font-medium text-stone-600">
+                Out of stock
+              </span>
+            ) : (
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    token
+                      ? navigate(`/products/${product.id}?buy=1`)
+                      : navigate(`/login?redirect=/products/${product.id}?buy=1`)
+                  }
+                  className="w-full rounded-lg bg-artisan-terracotta px-3 py-1.5 text-xs font-medium text-white hover:bg-artisan-terracotta/90"
+                >
+                  Buy now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddingToCart(true);
+                    addToCartWithStock(product.id, 1, {
+                      maxStock: typeof product.stock === 'number' ? product.stock : undefined,
+                    });
+                    const destination = token ? '/cart' : '/login?redirect=/cart';
+                    setTimeout(() => {
+                      navigate(destination);
+                    }, 250);
+                  }}
+                  className="w-full rounded-lg border border-artisan-terracotta/60 px-3 py-1.5 text-xs font-medium text-artisan-terracotta hover:bg-artisan-terracotta/10"
+                  disabled={addingToCart}
+                >
+                  {addingToCart ? 'Added ✓' : 'Add to cart'}
+                </button>
+              </div>
+            )
           )}
         </div>
       </div>

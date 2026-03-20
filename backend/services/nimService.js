@@ -8,9 +8,9 @@ const NIM_API_KEY = process.env.NIM_API_KEY;
 
 const SYSTEM_PROMPT =
   'You are an assistant helping local artisans list products on a marketplace. ' +
-  'Have a short, friendly conversation to collect: product title, description, price in INR, and category. ' +
-  'As soon as you have all four (title, description, price, category), end your reply with a line that says EXACTLY ' +
-  '`STRUCTURED_PRODUCT:` followed by a single JSON object with only these fields: title, description, price (number), category. ' +
+  'Have a short, friendly conversation to collect: product title, description, price in INR, category, and stock quantity (how many units are available). ' +
+  'As soon as you have all five (title, description, price, category, stock), end your reply with a line that says EXACTLY ' +
+  '`STRUCTURED_PRODUCT:` followed by a single JSON object with only these fields: title, description, price (number), category, stock (integer). ' +
   'Do not ask again for information the user has already provided. Do not repeat questions. ' +
   'If the user has given enough details across the conversation, output STRUCTURED_PRODUCT in your very next response.';
 

@@ -51,6 +51,7 @@ async function create(req, res) {
     if (!title || description == null || price == null || !category) {
       return res.status(400).json({ error: 'title, description, price, and category are required' });
     }
+    const { stock } = req.body;
     const product = await productService.create({
       title,
       description: String(description),
@@ -58,6 +59,7 @@ async function create(req, res) {
       category: String(category),
       imageUrl: imageUrl || null,
       sellerId,
+      stock: stock != null ? Math.max(1, parseInt(stock, 10) || 1) : 1,
     });
     res.status(201).json(product);
   } catch (err) {
@@ -76,7 +78,7 @@ async function update(req, res) {
     if (isNaN(id)) {
       return res.status(400).json({ error: 'Invalid product id' });
     }
-    const { title, description, price, category, imageUrl } = req.body;
+    const { title, description, price, category, imageUrl, stock } = req.body;
     if (!title || description == null || price == null || !category) {
       return res.status(400).json({ error: 'title, description, price, and category are required' });
     }
@@ -86,6 +88,7 @@ async function update(req, res) {
       price: parseFloat(price),
       category: String(category),
       imageUrl: imageUrl || null,
+      stock: stock != null ? Math.max(1, parseInt(stock, 10) || 1) : 1,
     });
     if (!product) {
       return res.status(404).json({ error: 'Product not found or you do not own it' });

@@ -14,6 +14,12 @@ interface MessageBubbleProps {
   uploadLoading?: boolean;
 }
 
+/** Strip the STRUCTURED_PRODUCT: JSON block from AI messages — it's rendered as a card instead */
+function cleanContent(text: string): string {
+  const idx = text.indexOf('STRUCTURED_PRODUCT:');
+  return idx === -1 ? text : text.slice(0, idx).trimEnd();
+}
+
 export default function MessageBubble({
   role,
   content,
@@ -28,6 +34,8 @@ export default function MessageBubble({
   const isUser = role === 'user';
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const displayText = isUser ? content : cleanContent(content);
 
   const hasProduct = !isUser && product && Object.keys(product).length > 0;
   const canCreate =
@@ -57,6 +65,7 @@ export default function MessageBubble({
       price: Number(product!.price),
       category: String(product!.category ?? ''),
       imageUrl: imageUrl ?? undefined,
+      stock: product!.stock != null ? Number(product!.stock) : 1,
     };
     onCreateListing(payload, imageUrl ?? undefined);
   };
@@ -70,21 +79,54 @@ export default function MessageBubble({
             : 'bg-white border border-stone-200 text-artisan-bark shadow-sm'
         }`}
       >
-        <p className="whitespace-pre-wrap text-sm leading-relaxed">{content}</p>
+        {displayText && (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed">{displayText}</p>
+        )}
         {hasProduct && (
-          <div className="mt-3 rounded-lg bg-artisan-cream p-3 text-xs">
-            <p className="font-medium text-artisan-stone">Suggested listing</p>
-            <ul className="mt-1 space-y-0.5 text-artisan-bark">
-              {product!.title != null && <li><strong>Title:</strong> {product!.title}</li>}
-              {product!.description != null && <li><strong>Description:</strong> {product!.description}</li>}
-              {product!.price != null && <li><strong>Price:</strong> ₹{product!.price}</li>}
-              {product!.category != null && <li><strong>Category:</strong> {product!.category}</li>}
+          <div className="mt-3 rounded-xl border border-artisan-terracotta/20 bg-artisan-cream p-4 text-xs">
+            <p className="mb-2 text-sm font-semibold text-artisan-bark">Your listing is ready</p>
+            <ul className="space-y-1 text-artisan-stone">
+              {product!.title != null && (
+                <li className="flex gap-2">
+                  <span className="w-20 shrink-0 font-medium text-artisan-bark">Title</span>
+                  <span>{product!.title}</span>
+                </li>
+              )}
+              {product!.category != null && (
+                <li className="flex gap-2">
+                  <span className="w-20 shrink-0 font-medium text-artisan-bark">Category</span>
+                  <span>{product!.category}</span>
+                </li>
+              )}
+              {product!.price != null && (
+                <li className="flex gap-2">
+                  <span className="w-20 shrink-0 font-medium text-artisan-bark">Price</span>
+                  <span>₹{product!.price}</span>
+                </li>
+              )}
+              {product!.stock != null && (
+                <li className="flex gap-2">
+                  <span className="w-20 shrink-0 font-medium text-artisan-bark">Stock</span>
+                  <span>{product!.stock} unit{product!.stock !== 1 ? 's' : ''} available</span>
+                </li>
+              )}
+              {product!.description != null && (
+                <li className="flex gap-2">
+                  <span className="w-20 shrink-0 font-medium text-artisan-bark">Description</span>
+                  <span className="line-clamp-3">{product!.description}</span>
+                </li>
+              )}
             </ul>
             {imageUrl && (
-              <p className="mt-2 text-artisan-stone">Image: attached</p>
+              <div className="mt-3 flex items-center gap-2 text-artisan-stone">
+                <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+                Image attached
+              </div>
             )}
             {canCreate && (
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-stone-200 pt-3">
                 {onUploadImage && (
                   <>
                     <input
@@ -100,7 +142,7 @@ export default function MessageBubble({
                       onClick={() => fileInputRef.current?.click()}
                       className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-artisan-bark hover:bg-stone-50 disabled:opacity-50"
                     >
-                      {uploadLoading ? 'Uploading…' : 'Add image'}
+                      {uploadLoading ? 'Uploading…' : imageUrl ? '↺ Change image' : '+ Add image'}
                     </button>
                   </>
                 )}
@@ -108,7 +150,7 @@ export default function MessageBubble({
                   isLoggedIn ? (
                     <button
                       type="button"
-                      disabled={createLoading}
+                      disabled={createLoading || uploadLoading}
                       onClick={handleCreate}
                       className="rounded-lg bg-artisan-terracotta px-3 py-1.5 text-xs font-medium text-white hover:bg-artisan-terracotta/90 disabled:opacity-50"
                     >

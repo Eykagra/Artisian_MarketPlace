@@ -9,6 +9,7 @@ const productRoutes = require('./routes/products');
 const chatRoutes = require('./routes/chat');
 const uploadRoutes = require('./routes/upload');
 const orderRoutes = require('./routes/orders');
+const { startReservationReaper } = require('./jobs/reservationReaper');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -54,6 +55,7 @@ app.use('/', orderRoutes);
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  startReservationReaper();
 });
 
 server.on('error', (err) => {

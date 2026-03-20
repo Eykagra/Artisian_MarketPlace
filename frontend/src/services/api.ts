@@ -16,6 +16,7 @@ export interface Product {
   imageUrl: string | null;
   sellerId: number;
   sellerEmail?: string;
+  stock?: number;
   createdAt: string;
 }
 
@@ -40,6 +41,7 @@ export interface CreateProductPayload {
   price: number;
   category: string;
   imageUrl?: string | null;
+  stock?: number;
 }
 
 export async function createProduct(
@@ -63,6 +65,7 @@ export interface UpdateProductPayload {
   price: number;
   category: string;
   imageUrl?: string | null;
+  stock?: number;
 }
 
 export async function updateProduct(
@@ -98,6 +101,7 @@ export interface ChatProduct {
   description?: string;
   price?: number;
   category?: string;
+  stock?: number;
 }
 
 export interface ChatResponse {
@@ -179,6 +183,42 @@ export interface PlaceOrderPayload {
   deliveryCity: string;
   deliveryPincode: string;
   quantity?: number;
+}
+
+export interface CheckoutItemPayload {
+  productId: number;
+  quantity: number;
+}
+
+export interface CreateCheckoutSessionPayload {
+  items: CheckoutItemPayload[];
+  buyerName: string;
+  buyerPhone: string;
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryPincode: string;
+}
+
+export async function createCheckoutSession(
+  payload: CreateCheckoutSessionPayload,
+  token: string
+): Promise<{ id: string; url: string | null }> {
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const { data } = await api.post<{ id: string; url: string | null }>('/checkout/session', payload, { headers });
+  return data;
+}
+
+export async function confirmCheckoutSession(
+  sessionId: string,
+  token: string
+): Promise<{ ok: boolean; alreadyProcessed?: boolean; processing?: boolean }> {
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const { data } = await api.post<{ ok: boolean; alreadyProcessed?: boolean; processing?: boolean }>(
+    '/checkout/confirm',
+    { sessionId },
+    { headers }
+  );
+  return data;
 }
 
 export async function placeOrder(

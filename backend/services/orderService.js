@@ -1,4 +1,10 @@
-const { query } = require('../db');
+const { query, pool } = require('../db');
+let paymentSessionTableEnsured = false;
+let paymentSessionEnsurePromise = null;
+
+async function ensureStockColumn() {
+  await query(`ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 1`);
+}
 
 async function ensureOrderTable() {
   await query(`
@@ -19,7 +25,99 @@ async function ensureOrderTable() {
   `);
 }
 
+async function ensurePaymentSessionTable() {
+  if (paymentSessionTableEnsured) return;
+  if (paymentSessionEnsurePromise) {
+    await paymentSessionEnsurePromise;
+    return;
+  }
+
+  paymentSessionEnsurePromise = (async () => {
+    try {
+      await query(`
+        CREATE TABLE IF NOT EXISTS "PaymentSession" (
+          sessionid TEXT PRIMARY KEY,
+          buyerid INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+          status TEXT NOT NULL DEFAULT 'processing',
+          createdat TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await query(`ALTER TABLE "PaymentSession" ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'processing'`);
+      paymentSessionTableEnsured = true;
+    } catch (err) {
+      // Under concurrent CREATE TABLE calls Postgres can occasionally raise catalog
+      // duplicate-key errors even with IF NOT EXISTS. Treat as "already created".
+      const code = err && typeof err === 'object' ? err.code : undefined;
+      const constraint = err && typeof err === 'object' ? err.constraint : undefined;
+      if (code === '42P07' || (code === '23505' && constraint === 'pg_type_typname_nsp_index')) {
+        paymentSessionTableEnsured = true;
+        return;
+      }
+      throw err;
+    } finally {
+      paymentSessionEnsurePromise = null;
+    }
+  })();
+
+  await paymentSessionEnsurePromise;
+}
+
 async function createOrder({ productId, buyerId, quantity, totalPrice, buyerName, buyerPhone, deliveryAddress, deliveryCity, deliveryPincode }) {
+  await ensureOrderTable();
+  await ensureStockColumn();
+
+  // Use a DB transaction so stock check + decrement + order creation are consistent.
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const updateRes = await client.query(
+      `UPDATE "Product"
+       SET stock = stock - $1
+       WHERE id = $2 AND stock >= $1
+       RETURNING id`,
+      [quantity, productId]
+    );
+
+    if (!updateRes.rowCount) {
+      const err = new Error(`Insufficient stock for product ${productId}`);
+      // Used by controller to choose proper HTTP status.
+      err.status = 409;
+      throw err;
+    }
+
+    const insertRes = await client.query(
+      `INSERT INTO "Order" (productid, buyerid, quantity, totalprice, status, buyername, buyerphone, deliveryaddress, deliverycity, deliverypincode)
+       VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9)
+       RETURNING id, productid AS "productId", buyerid AS "buyerId", quantity, totalprice AS "totalPrice", status, buyername AS "buyerName", buyerphone AS "buyerPhone", deliveryaddress AS "deliveryAddress", deliverycity AS "deliveryCity", deliverypincode AS "deliveryPincode", createdat AS "createdAt"`,
+      [
+        productId,
+        buyerId,
+        quantity,
+        totalPrice,
+        buyerName,
+        buyerPhone,
+        deliveryAddress,
+        deliveryCity,
+        deliveryPincode,
+      ]
+    );
+
+    await client.query('COMMIT');
+    return insertRes.rows[0];
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {
+      // ignore rollback failures
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function createOrderRecord({ productId, buyerId, quantity, totalPrice, buyerName, buyerPhone, deliveryAddress, deliveryCity, deliveryPincode }) {
   await ensureOrderTable();
   const result = await query(
     `INSERT INTO "Order" (productid, buyerid, quantity, totalprice, status, buyername, buyerphone, deliveryaddress, deliverycity, deliverypincode)
@@ -98,4 +196,70 @@ async function getOrdersForBuyer(buyerId) {
   return result.rows;
 }
 
-module.exports = { createOrder, getOrdersForSeller, getSellerStats, updateOrderStatus, getOrdersForBuyer };
+async function hasProcessedPaymentSession(sessionId) {
+  await ensurePaymentSessionTable();
+  const result = await query(
+    `SELECT sessionid FROM "PaymentSession" WHERE sessionid = $1 AND status = 'completed'`,
+    [sessionId]
+  );
+  return !!result.rows[0];
+}
+
+async function acquirePaymentSessionProcessing(sessionId, buyerId) {
+  await ensurePaymentSessionTable();
+  const result = await query(
+    `INSERT INTO "PaymentSession" (sessionid, buyerid, status)
+     VALUES ($1, $2, 'processing')
+     ON CONFLICT (sessionid) DO NOTHING
+     RETURNING sessionid`,
+    [sessionId, buyerId]
+  );
+  return !!result.rows[0];
+}
+
+async function markPaymentSessionProcessed(sessionId, buyerId) {
+  await ensurePaymentSessionTable();
+  const result = await query(
+    `UPDATE "PaymentSession"
+     SET status = 'completed'
+     WHERE sessionid = $1 AND buyerid = $2
+     RETURNING sessionid`,
+    [sessionId, buyerId]
+  );
+  return !!result.rows[0];
+}
+
+async function markPaymentSessionFailed(sessionId, buyerId) {
+  await ensurePaymentSessionTable();
+  const result = await query(
+    `UPDATE "PaymentSession"
+     SET status = 'failed'
+     WHERE sessionid = $1 AND buyerid = $2
+     RETURNING sessionid`,
+    [sessionId, buyerId]
+  );
+  return !!result.rows[0];
+}
+
+async function getPaymentSession(sessionId) {
+  await ensurePaymentSessionTable();
+  const result = await query(
+    `SELECT sessionid, buyerid AS "buyerId", status FROM "PaymentSession" WHERE sessionid = $1`,
+    [sessionId]
+  );
+  return result.rows[0] || null;
+}
+
+module.exports = {
+  createOrder,
+  createOrderRecord,
+  getOrdersForSeller,
+  getSellerStats,
+  updateOrderStatus,
+  getOrdersForBuyer,
+  hasProcessedPaymentSession,
+  acquirePaymentSessionProcessing,
+  markPaymentSessionProcessed,
+  markPaymentSessionFailed,
+  getPaymentSession,
+};

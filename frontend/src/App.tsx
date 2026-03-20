@@ -5,6 +5,7 @@ import ProductPage from './pages/ProductPage';
 import ListProductPage from './pages/ListProductPage';
 import DashboardPage from './pages/DashboardPage';
 import MyOrdersPage from './pages/MyOrdersPage';
+import CartPage from './pages/CartPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import { getRoleFromToken } from './services/api';
@@ -43,6 +44,7 @@ export default function App() {
 
           {/* Buyer only */}
           <Route path="/my-orders" element={<BuyerRoute><MyOrdersPage /></BuyerRoute>} />
+          <Route path="/cart" element={<BuyerRoute><CartPage /></BuyerRoute>} />
         </Routes>
       </div>
     </BrowserRouter>

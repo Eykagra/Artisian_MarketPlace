@@ -1,15 +1,23 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getRoleFromToken } from '../services/api';
+import { getCartCount } from '../services/cart';
 
 export default function Navbar() {
   const navigate = useNavigate();
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
+  const [cartCount, setCartCount] = useState(() => getCartCount());
 
   useEffect(() => {
     const onAuthChange = () => setToken(localStorage.getItem('token'));
     window.addEventListener('auth-change', onAuthChange);
     return () => window.removeEventListener('auth-change', onAuthChange);
+  }, []);
+
+  useEffect(() => {
+    const onCartChange = () => setCartCount(getCartCount());
+    window.addEventListener('cartUpdated', onCartChange);
+    return () => window.removeEventListener('cartUpdated', onCartChange);
   }, []);
 
   const handleLogout = () => {
@@ -55,8 +63,21 @@ export default function Navbar() {
 
           {/* Buyer only */}
           {isBuyer && (
-            <Link to="/my-orders" className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark">
+            <Link
+              to="/my-orders"
+              className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark"
+            >
               My orders
+            </Link>
+          )}
+
+          {/* Buyer only */}
+          {isBuyer && (
+            <Link
+              to="/cart"
+              className="text-sm font-medium text-artisan-stone transition hover:text-artisan-bark"
+            >
+              Cart{cartCount ? ` (${cartCount})` : ''}
             </Link>
           )}
 
