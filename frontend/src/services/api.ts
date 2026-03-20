@@ -86,13 +86,23 @@ export async function deleteProduct(id: number, token: string): Promise<void> {
 export async function uploadProductImage(file: File, token?: string): Promise<string> {
   const form = new FormData();
   form.append('image', file);
+  
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  // Use axios.post directly so we don't send Content-Type: application/json (api instance default).
-  // Axios will set multipart/form-data with boundary when body is FormData.
-  const { data } = await axios.post<{ url: string }>(`${API_BASE}/upload/image`, form, {
+
+  // Native fetch guarantees the browser perfectly encodes the boundary
+  const res = await fetch(`${API_BASE}/upload/image`, {
+    method: 'POST',
     headers,
+    body: form,
   });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Upload failed with status ${res.status}`);
+  }
+
+  const data = await res.json();
   return data.url;
 }
 
@@ -160,6 +170,8 @@ export interface Order {
   deliveryAddress: string;
   deliveryCity: string;
   deliveryPincode: string;
+  deliveryOtp?: string;
+  refundStatus?: string;
   createdAt: string;
   productTitle?: string;
   productPrice?: number;
@@ -246,12 +258,13 @@ export async function fetchSellerStats(token: string): Promise<SellerStats> {
 export async function updateOrderStatus(
   orderId: number,
   status: string,
-  token: string
+  token: string,
+  otp?: string
 ): Promise<{ id: number; status: string }> {
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
   const { data } = await api.patch<{ id: number; status: string }>(
     `/orders/${orderId}/status`,
-    { status },
+    { status, otp },
     { headers }
   );
   return data;
@@ -279,6 +292,25 @@ export function getRoleFromToken(token: string | null | undefined): 'buyer' | 's
   if (d?.role === 'seller') return 'seller';
   if (d?.role === 'buyer') return 'buyer';
   return null;
+}
+
+export interface DashboardMetrics {
+  summary: {
+    totalRevenue: number;
+    totalOrders: number;
+    productsListed: number;
+    bestSellingProduct: string;
+  };
+  revenueOverTime: { date: string; revenue: number; orders: number }[];
+  topSellingProducts: { title: string; unitsSold: number; revenue: number }[];
+  recentOrders: { id: number; productTitle: string; buyerName: string; amount: number; status: string }[];
+  insight: string;
+}
+
+export async function fetchSellerDashboard(token: string): Promise<DashboardMetrics> {
+  const headers = { Authorization: `Bearer ${token}` };
+  const { data } = await api.get<DashboardMetrics>('/dashboard', { headers });
+  return data;
 }
 
 export default api;

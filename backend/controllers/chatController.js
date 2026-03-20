@@ -1,5 +1,6 @@
 const chatService = require('../services/chatService');
 const { sendToNim } = require('../services/nimService');
+const { emitToUser } = require('../socket');
 
 async function post(req, res) {
   try {
@@ -37,6 +38,14 @@ async function post(req, res) {
         product: ai.product,
       },
     });
+
+    if (userId) {
+      emitToUser(userId, 'message:new', {
+        role: 'assistant',
+        content: ai.text.slice(0, 100) + (ai.text.length > 100 ? '...' : ''),
+        timestamp: new Date()
+      });
+    }
   } catch (err) {
     console.error('Chat post error:', err);
     res.status(500).json({ error: 'Failed to handle chat message' });
