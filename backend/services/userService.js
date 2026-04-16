@@ -1,6 +1,18 @@
 const { query } = require('../db');
 
+async function ensureUserTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS "User" (
+      id SERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      createdat TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
+
 async function ensureRoleColumn() {
+  await ensureUserTable();
   await query(`
     ALTER TABLE "User" ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'buyer'
   `);
