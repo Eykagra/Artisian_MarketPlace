@@ -6,7 +6,23 @@ const PRODUCT_COLS = `
   p.stock, p.createdat AS "createdAt", u.email AS "sellerEmail"
 `;
 
+async function ensureProductTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS "Product" (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL,
+      price DOUBLE PRECISION NOT NULL,
+      category TEXT NOT NULL,
+      imageurl TEXT,
+      sellerid INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+      createdat TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
+
 async function ensureStockColumn() {
+  await ensureProductTable();
   await query(`ALTER TABLE "Product" ADD COLUMN IF NOT EXISTS stock INTEGER NOT NULL DEFAULT 1`);
 }
 

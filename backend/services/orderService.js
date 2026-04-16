@@ -187,6 +187,7 @@ async function updateOrderStatus(orderId, sellerId, status) {
 
 // Add a helper for the controller to safely fetch the order's OTP before updating
 async function getOrderOtpForSeller(orderId, sellerId) {
+  await ensureOrderTable();
   const result = await query(
     `SELECT o.deliveryotp AS "deliveryOtp" 
      FROM "Order" o 
@@ -198,6 +199,8 @@ async function getOrderOtpForSeller(orderId, sellerId) {
 }
 
 async function getPaymentSessionByOrderId(orderId) {
+  await ensurePaymentSessionTable();
+  await ensureOrderTable();
   // Orders from Stripe checkout have a matching PaymentSession row.
   // We need it to retrieve the Stripe sessionId → payment_intent for refund.
   const result = await query(
@@ -217,10 +220,12 @@ async function getPaymentSessionByOrderId(orderId) {
 }
 
 async function markOrderRefundPending(orderId) {
+  await ensureOrderTable();
   await query(`UPDATE "Order" SET refundstatus = 'pending' WHERE id = $1`, [orderId]);
 }
 
 async function markOrderRefundDone(orderId) {
+  await ensureOrderTable();
   await query(`UPDATE "Order" SET refundstatus = 'issued' WHERE id = $1`, [orderId]);
 }
 

@@ -4,6 +4,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const { query } = require('./db');
+const { ensureDatabaseSchema } = require('./schema/initSchema');
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
 const chatRoutes = require('./routes/chat');
@@ -57,20 +58,32 @@ app.use('/', orderRoutes);
 
 const http = require('http');
 const { initSocket } = require('./socket');
-const httpServer = http.createServer(app);
-initSocket(httpServer);
 
-const server = httpServer.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  startReservationReaper();
-});
+async function startServer() {
+  try {
+    await ensureDatabaseSchema();
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`Port ${PORT} is already in use. Stop the other process or set PORT to a different number.`);
-  } else {
-    console.error('Server error:', err.message);
+    const httpServer = http.createServer(app);
+    initSocket(httpServer);
+
+    const server = httpServer.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      startReservationReaper();
+    });
+
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Stop the other process or set PORT to a different number.`);
+      } else {
+        console.error('Server error:', err.message);
+      }
+      process.exit(1);
+    });
+  } catch (err) {
+    console.error('Failed to initialize database schema:', err.message);
+    process.exit(1);
   }
-  process.exit(1);
-});
+}
+
+startServer();
 
